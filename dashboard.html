@@ -115,7 +115,7 @@
     <div class="container">
         <div class="header">
             <h1>🏥 함소아한의원 네이버 지역 순위</h1>
-            <p>마지막 업데이트: 2025년 09월 29일 15:23</p>
+            <p>마지막 업데이트: 2025년 09월 29일 15:43</p>
             <button class="refresh-btn" onclick="location.reload()">🔄 새로고침</button>
         </div>
         
@@ -169,7 +169,104 @@
     </div>
     
     <script>
-        // 5분마다 자동 새로고침
+        // 실시간 데이터 로딩 함수
+        async function loadRealTimeData() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('데이터 로드 실패:', data.error);
+                    return;
+                }
+                
+                // 통계 업데이트
+                updateStats(data.stats);
+                
+                // 순위 데이터 업데이트
+                updateRanks(data.data);
+                
+                // 마지막 업데이트 시간 업데이트
+                updateLastUpdateTime(data.last_update);
+                
+            } catch (error) {
+                console.error('API 호출 실패:', error);
+            }
+        }
+        
+        function updateStats(stats) {
+            document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = stats.total_branches || 0;
+            document.querySelector('.stat-card:nth-child(2) .stat-number').textContent = stats.ranked_branches || 0;
+            document.querySelector('.stat-card:nth-child(3) .stat-number').textContent = stats.top5_branches || 0;
+            
+            // 진입률 계산 및 표시
+            let entryRate = '0%';
+            if (stats.entry_rate !== undefined && stats.entry_rate !== null) {
+                entryRate = stats.entry_rate + '%';
+            } else if (stats.total_branches && stats.ranked_branches) {
+                entryRate = ((stats.ranked_branches / stats.total_branches) * 100).toFixed(1) + '%';
+            }
+            document.querySelector('.stat-card:nth-child(4) .stat-number').textContent = entryRate;
+        }
+        
+        function updateRanks(data) {
+            const ranksGrid = document.querySelector('.ranks-grid');
+            ranksGrid.innerHTML = '';
+            
+            data.forEach(item => {
+                const rankCard = document.createElement('div');
+                rankCard.className = 'rank-card';
+                
+                let rankBadge = '';
+                let rankClass = '';
+                
+                // rank 값 처리 개선
+                if (!item.rank || item.rank === '순위없음' || item.rank === null || item.rank === '') {
+                    rankBadge = '❌ 순위없음';
+                    rankClass = 'rank-other';
+                    rankCard.classList.add('no-rank');
+                } else {
+                    const rank = parseInt(item.rank);
+                    if (isNaN(rank)) {
+                        rankBadge = '❌ 순위없음';
+                        rankClass = 'rank-other';
+                        rankCard.classList.add('no-rank');
+                    } else if (rank === 1) {
+                        rankBadge = '🥇 1위';
+                        rankClass = 'rank-1';
+                    } else if (rank >= 2 && rank <= 3) {
+                        rankBadge = `🥈 ${rank}위`;
+                        rankClass = 'rank-2-3';
+                    } else if (rank >= 4 && rank <= 5) {
+                        rankBadge = `🥉 ${rank}위`;
+                        rankClass = 'rank-4-5';
+                    } else {
+                        rankBadge = `${rank}위`;
+                        rankClass = 'rank-other';
+                    }
+                }
+                
+                rankCard.innerHTML = `
+                    <div class="rank-badge ${rankClass}">${rankBadge}</div>
+                    <div class="branch-name">${item.branch_name || item.branch || '지점명 없음'}</div>
+                    <div class="keyword">${item.keyword || '키워드 없음'}</div>
+                `;
+                
+                ranksGrid.appendChild(rankCard);
+            });
+        }
+        
+        function updateLastUpdateTime(timeString) {
+            document.querySelector('.header p').textContent = `마지막 업데이트: ${timeString}`;
+        }
+        
+        // 30초마다 실시간 데이터 로드
+        setInterval(loadRealTimeData, 30000);
+        
+        // 페이지 로드 시 즉시 데이터 로드
+        loadRealTimeData();
+        
+        // 5분마다 전체 페이지 새로고침 (백업)
         setTimeout(() => location.reload(), 300000);
     </script>
 </body>

@@ -226,7 +226,112 @@ def create_web_dashboard():
     </div>
     
     <script>
-        // 5분마다 자동 새로고침
+        // 실시간 데이터 로딩 함수
+        async function loadRealTimeData() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('데이터 로드 실패:', data.error);
+                    return;
+                }
+                
+                // 통계 업데이트
+                updateStats(data.stats);
+                
+                // 순위 데이터 업데이트
+                updateRanks(data.data);
+                
+                // 마지막 업데이트 시간 업데이트
+                updateLastUpdateTime(data.last_update);
+                
+            } catch (error) {
+                console.error('API 호출 실패:', error);
+            }
+        }
+        
+        // 통계 업데이트
+        function updateStats(stats) {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            if (statNumbers.length >= 4) {
+                statNumbers[0].textContent = stats.total_branches;
+                statNumbers[1].textContent = stats.ranked_branches;
+                statNumbers[2].textContent = stats.top5_branches;
+                statNumbers[3].textContent = stats.rank_rate.toFixed(1) + '%';
+            }
+        }
+        
+        // 순위 데이터 업데이트
+        function updateRanks(ranksData) {
+            const ranksGrid = document.querySelector('.ranks-grid');
+            if (!ranksGrid) return;
+            
+            // 순위가 있는 지점들 먼저 (순위순으로 정렬)
+            const rankedBranches = ranksData.filter(r => r.rank !== null).sort((a, b) => a.rank - b.rank);
+            const noRankBranches = ranksData.filter(r => r.rank === null);
+            
+            let htmlContent = '';
+            
+            // 순위가 있는 지점들
+            rankedBranches.forEach(branchData => {
+                const rank = branchData.rank;
+                let rankClass, badgeText;
+                
+                if (rank === 1) {
+                    rankClass = "rank-1";
+                    badgeText = `🥇 ${rank}위`;
+                } else if (rank <= 3) {
+                    rankClass = "rank-2-3";
+                    badgeText = `🥈 ${rank}위`;
+                } else if (rank <= 5) {
+                    rankClass = "rank-4-5";
+                    badgeText = `🥉 ${rank}위`;
+                } else {
+                    rankClass = "rank-other";
+                    badgeText = `📍 ${rank}위`;
+                }
+                
+                htmlContent += `
+                    <div class="rank-card">
+                        <div class="rank-badge ${rankClass}">${badgeText}</div>
+                        <div class="branch-name">${branchData.branch}</div>
+                        <div class="keyword">${branchData.keyword}</div>
+                    </div>
+                `;
+            });
+            
+            // 순위가 없는 지점들
+            noRankBranches.forEach(branchData => {
+                htmlContent += `
+                    <div class="rank-card no-rank">
+                        <div class="rank-badge rank-other">❌ 순위없음</div>
+                        <div class="branch-name">${branchData.branch}</div>
+                        <div class="keyword">${branchData.keyword}</div>
+                    </div>
+                `;
+            });
+            
+            ranksGrid.innerHTML = htmlContent;
+        }
+        
+        // 마지막 업데이트 시간 업데이트
+        function updateLastUpdateTime(timeString) {
+            const timeElement = document.querySelector('.header p');
+            if (timeElement) {
+                timeElement.textContent = `마지막 업데이트: ${timeString}`;
+            }
+        }
+        
+        // 페이지 로드 시 초기 데이터 로드
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRealTimeData();
+        });
+        
+        // 30초마다 실시간 데이터 업데이트
+        setInterval(loadRealTimeData, 30000);
+        
+        // 5분마다 전체 페이지 새로고침 (백업)
         setTimeout(() => location.reload(), 300000);
     </script>
 </body>
